@@ -1,4 +1,5 @@
 #include "plugin.h"
+#include "common.h"
 
 using namespace plugin;
 
@@ -87,90 +88,221 @@ void __declspec(naked) ASM_checkBikeExtraction() {
     }
 }
 
+//patch adding old camera structue
+//oldmatrix location CCamera 0xB6F028 + 9BC = 0xB6F9E4
+//matrix location CCamera 0xB6F028 + 974 = 0xB6F99C
+//        mov eax, [0xB6F99C]
+//mov 0xB6F9E4, eax
+void __declspec(naked) ASM_copyMatrixToOldProcessMouse() {
+    _asm {
+        mov         eax, dword ptr[0xB6F028]
+        add         eax, 0x974
+        push        eax
+        mov         ecx, dword ptr[0xB6F028]
+        add         ecx, 0x9BC
+        mov         eax, 0x59BBC0
+        call        eax
+        mov         ecx, [esp + 0x44]
+        mov         edx, [esp + 0x48]
+        mov         eax, 0x45DC6B
+        jmp         eax
+    }
+}
+
+
+void __declspec(naked) ASM_copyMatrixToOldFixedCamera() {
+    _asm {
+        mov         eax, dword ptr[0xB6F028]
+        add         eax, 0x974
+        push        eax
+        mov         ecx, dword ptr[0xB6F028]
+        add         ecx, 0x9BC
+        mov         eax, 0x59BBC0
+        call        eax
+        mov ecx, [esp + 0x14]
+        mov edx, [esp + 0x18]
+        mov eax, 0x45D198
+        jmp eax
+    }
+}
+
+void __declspec(naked) ASM_copyMatrixToOldPlaybackThisFrameInterpolation() {
+    _asm {
+        mov         eax, 0x721D50
+        call        eax
+        mov         eax, dword ptr[0xB6F028]
+        add         eax, 0x974
+        push        eax
+        mov         ecx, dword ptr[0xB6F028]
+        add         ecx, 0x9BC
+        mov         eax, 0x59BBC0
+        call        eax
+        mov eax, 0x45F3A1
+        jmp eax
+    }
+}
+
+void __declspec(naked) ASM_nn() {
+    _asm {
+        je ee
+        and dword ptr[esi + 0x1C], 0xFFFFFFF7
+        jmp eax
+    ee :
+        mov eax, 0x54CCF2
+        jmp eax
+    }
+}
+
+//patch at 0x5689A3
+void __declspec(naked) ASM_addProcessCollisionToReplayLoop() {
+    _asm {
+        mov esi, [edi]
+        mov edx, [esi]
+        push edi
+        mov ecx, esi
+        call dword ptr[edx + 0x2C]
+        pop edi
+        mov esi, [edi] //CPtrNodeDoubleLink.pItem
+        mov edx, [esi + 0x1C]
+        mov eax, [esi + 0x18]
+        mov edi, [edi + 0x4] //CPtrNodeDoubleLink.pNext
+        mov ecx, 0x5689A0
+        jmp ecx
+    }
+}
+/*
+void __declspec(naked) ASM_addProcessCollisionToReplayLoop() {
+    _asm {
+        mov esi, [edi]
+        mov edx, [esi]
+        cmp[esi + 0x36], 0x0A
+        jnz label1
+        push edi
+        mov ecx, esi
+        call dword ptr[edx + 0x2C]
+        pop edi
+        label1 :
+        mov esi, [edi] //CPtrNodeDoubleLink.pItem
+            mov edx, [esi + 0x1C]
+            mov eax, [esi + 0x18]
+            mov edi, [edi + 0x4] //CPtrNodeDoubleLink.pNext
+            mov ecx, 0x5689A0
+            jmp ecx
+    }
+}
+*/
+
+DWORD AfterCheck = 0x6BD1E2;
+DWORD BeforeCheck = 0x6BD0CE;
+void __declspec(naked) ASM_addCheckBikePreRenderReplayMode() {
+    _asm {
+        push eax
+        mov eax, 0xA43088
+        cmp byte ptr[eax], 01
+        jnz jumptoafter
+        pop eax
+        mov[esp + 0x7C], ebx
+        jmp AfterCheck
+    jumptoafter :
+        test byte ptr[esi + 0x42B], 01
+        pop eax
+        jmp BeforeCheck
+
+    }
+}
+
+DWORD AfterAdd = 0x5E2C7F;
+DWORD OneLocation = 0x858624;
+void __declspec(naked) ASM_removeCollisionOffsetReplayMode() {
+    _asm {
+        mov eax, 0xA43088
+        cmp byte ptr[eax], 01
+        jnz jumptoafter2
+        mov eax, 0x5E2C7F
+        jmp eax
+    jumptoafter2 :
+        mov eax, 0x858624
+        fadd dword ptr[eax]
+        mov eax, 0x5E2C7F
+        jmp eax
+    }
+}
+
+void __declspec(naked) ASM_removeEntityCollisionCPedSetPosition() {
+    _asm {
+        mov eax, 0xA43088
+        cmp byte ptr[eax], 01
+        jnz jumptoafter3
+        mov eax, 0x5E2C77
+        jmp eax
+    jumptoafter3 :
+        mov eax, [esi + 0x14]
+        fstp dword ptr[eax + 0x38]
+        mov eax, 0x5E2C77
+        jmp eax
+    }
+}
+
 class SpinningReplay {
 public:
 
-    void patchUsingCodeCaves() {
-        //Creation part (from replay entity to packet)
+    void SpinningReplay::patchSparks()
+    {
+        //patch check if replay is MODE_PLAYBACK in CWorld::Process
+        //this patch is not needed anymore because we add process collision into the replay loop instead
+        //patch::SetChar(0x568742, 0xFF);
 
-        //jmp 006D4A63
-        //nop
-        //nop
-        //nop
-        char jump2bikeifPacket[8] = { 0xE9, 0x14, 0x91, 0x27, 0x00, 0x90, 0x90, 0x90 };
-        patch::SetRaw(0x45B94A, jump2bikeifPacket, 8);
+        //patch check in CPhysical apply friction which checks for minimal speed
+        //fcomp dword ptr [00858B1C] => fcomp dword ptr[00858B14]
+        char sparkCondition[6] = { 0xD8, 0x1D, 0x14, 0x8B, 0x85, 0x00 };
+        patch::SetRaw(0x5457AA, sparkCondition, 6);
 
-        //alter CVehicle offsets to 0x750, 0x760, 0x754 and 0x764 in packet section to read from to CBike->wheelRotation and CBike->wheelSuspensionHeight
-        patch::SetChar(0x45B954, 0x50);
-        patch::SetChar(0x45B955, 0x07);
+        //patch entity flags
+        char aa[70] = { 0x83, 0xE0, 0x00, 0x0D, 0x81, 0x00, 0x00, 0x00, 0x90, 0x90, 0x90, 0x90, 0x90, 0x89, 0x46, 0x1C, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x0F, 0xB6, 0x4F, 0x2F, 0x0F, 0xB6, 0x57, 0x2F, 0xC1, 0xE1, 0x1C, 0x33, 0xC8, 0x81, 0xE1, 0xFF, 0xFF, 0xFF, 0x7F, 0xC1, 0xE2, 0x1C, 0x33, 0xCA, 0x66, 0x81, 0x7E, 0x22, 0xB0, 0x01, 0x90, 0x90, 0x90 };
+        //char aa[70] = { 0x90, 0x90, 0x90, 0x0D, 0x81, 0x00, 0x00, 0x00, 0x90, 0x90, 0x90, 0x90, 0x90, 0x89, 0x46, 0x1C, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x0F, 0xB6, 0x4F, 0x2F, 0x0F, 0xB6, 0x57, 0x2F, 0xC1, 0xE1, 0x1C, 0x33, 0xC8, 0x81, 0xE1, 0xFF, 0xFF, 0xFF, 0x7F, 0xC1, 0xE2, 0x1C, 0x33, 0xCA, 0x66, 0x81, 0x7E, 0x22, 0xB0, 0x01, 0x90, 0x90, 0x90 };
+        //25 CF FF FF FF 83 C8 01
+        //char aa[70] = { 0x90, 0x90, 0x90, 0x25, 0xCF, 0xFF, 0xFF, 0xFF, 0x83, 0xC8, 0x01, 0x90, 0x90, 0x89, 0x46, 0x1C, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x0F, 0xB6, 0x4F, 0x2F, 0x0F, 0xB6, 0x57, 0x2F, 0xC1, 0xE1, 0x1C, 0x33, 0xC8, 0x81, 0xE1, 0xFF, 0xFF, 0xFF, 0x7F, 0xC1, 0xE2, 0x1C, 0x33, 0xCA, 0x66, 0x81, 0x7E, 0x22, 0xB0, 0x01, 0x90, 0x90, 0x90 };
+        patch::SetRaw(0x45BBF7, aa, 70);
 
-        patch::SetChar(0x45B968, 0x60);
-        patch::SetChar(0x45B969, 0x07);
+        //patch physical flags
+        //char bb[17] = { 0x83, 0xE7, 0x00, 0x81, 0xCF, 0x02, 0x02, 0x00, 0x10, 0x90, 0x90, 0x90, 0x90, 0x90, 0x89, 0x7E, 0x40 };
+        char bb[17] = { 0x90, 0x90, 0x90, 0x81, 0xCF, 0x02, 0x02, 0x00, 0x10, 0x90, 0x90, 0x90, 0x90, 0x90, 0x89, 0x7E, 0x40 };
+        //char bb[17] = { 0x83, 0xE7, 0x00, 0x81, 0xCF, 0x22, 0x02, 0x00, 0x10, 0x90, 0x90, 0x90, 0x90, 0x90, 0x89, 0x7E, 0x40 };
+        //patch::SetRaw(0x45BF11, bb, 17);
 
-        patch::SetChar(0x45B97C, 0x54);
-        patch::SetChar(0x45B97D, 0x07);
+        //remove and for entity flags in Replay::PlayThisFrameInterpolation
+        char ccc[3] = { 0x90, 0x90, 0x90 };
+        patch::SetRaw(0x45F805, ccc, 3);
 
-        patch::SetChar(0x45B990, 0x64);
-        patch::SetChar(0x45B991, 0x07);
+        //in CBike::preRender() remove suspension height interaction!
+        //patch::SetChar(0x6BD0CD, 0); //using this will fuck up suspension in game
+        patch::RedirectJump(0x6BD0C7, ASM_addCheckBikePreRenderReplayMode);
 
-        //jump to special if to check if current vehicle is a bike
-        //mov bx,0009  (move 9, TYPE_BIKE, to bx)
-        //cmp ax,bx (compare highest bits of eax to bx, aex stores the VEHICLE_TYPE at this point as it is set before jumping)
-        //je 0045B952 (jump to bike wheel extraction)
-        //jmp 0045BA65 (jump to after bike wheel extraction)
-        char bikeifpacket[20] = { 0x66, 0xBB, 0x09, 0x00, 0x66, 0x39, 0xD8, 0x0F, 0x84, 0xE2, 0x6E, 0xD8, 0xFF, 0xE9, 0xF0, 0x6F, 0xD8, 0xFF, 0x90, 0x90 };
-        patch::SetRaw(0x6D4A63, bikeifpacket, 20);
+        //nop some write to entity flags
+        //char cc[6] = {0x90, 0x90, 0x90, 0x90, 0x90, 0x90};
+        //patch::SetRaw(0x45BEDE, cc, 6);
 
-        //jump back to after CAutomobile if in packet creation
-        //jmp 0045BA65
-        //nop
-        char jumpback[6] = { 0xE9, 0xBE, 0x00, 0x00, 0x00, 0x90 };
-        patch::SetRaw(0x45B9A2, jumpback, 6);
+        //set has m_bHasContacted to false in processSectorList
+        char dd[4] = { 0x83, 0x66, 0x1C, 0xF7 };
+        patch::SetRaw(0x54CCEE, dd, 4);
 
-
-        //Extraction part (from packet to replay entity)
-        //jmp 006D4A8E
-        //nop
-        //nop
-        //nop
-        char jump2bikeifExtraction[8] = { 0xE9, 0x0C, 0x8E, 0x27, 0x00, 0x90, 0x90, 0x90 };
-        patch::SetRaw(0x45BC7D, jump2bikeifExtraction, 8);
-
-        //alter CVehicle offsets to 0x750, 0x760, 0x754 and 0x764 in extraction section to write to to CBike->wheelRotation and CBike->wheelSuspensionHeight
-        patch::SetChar(0x45BC99, 0x50);
-        patch::SetChar(0x45BC9A, 0x07);
-
-        patch::SetChar(0x45BCB1, 0x60);
-        patch::SetChar(0x45BCB2, 0x07);
-
-        patch::SetChar(0x45BCC9, 0x54);
-        patch::SetChar(0x45BCCA, 0x07);
-
-        patch::SetChar(0x45BCE1, 0x64);
-        patch::SetChar(0x45BCE2, 0x07);
-
-        //jump to special if to check if current vehicle is a bike
-        //mov dx,0009  (move 9, TYPE_BIKE, to dx)
-        //cmp ax, dx (compare highest bits of eax to bx, aex stores the VEHICLE_TYPE at this point as it is set before jumping)
-        //je 0045BC85 (jump to bike wheel section)
-        //jmp 0045BEF5 (jump to after bike wheel section)
-        //nop
-        //nop
-        char bikeifextraction[20] = { 0x66, 0xBA, 0x09, 0x00, 0x66, 0x39, 0xD0, 0x0F, 0x84, 0xEA, 0x71, 0xD8, 0xFF, 0xE9, 0x55, 0x74, 0xD8, 0xFF, 0x90, 0x90 };
-        patch::SetRaw(0x6D4A8E, bikeifextraction, 20);
-
-        //jump back to after CAutomobile if in extraction
-        //jmp 0045BEF5
-        //nop
-        //nop
-        //nop
-        char jumpback2[8] = { 0xE9, 0x0B, 0x02, 0x00, 0x00, 0x90, 0x90, 0x90 };
-        patch::SetRaw(0x45BCE5, jumpback2, 8);
+        patch::RedirectJump(0x45F39C, ASM_copyMatrixToOldPlaybackThisFrameInterpolation);
+        patch::RedirectJump(0x568995, ASM_addProcessCollisionToReplayLoop);
+        patch::RedirectJump(0x5E2C79, ASM_removeCollisionOffsetReplayMode);
+        patch::SetChar(0x5E2C7E, 0x90); //nop last part of add at 0x5E2C79
+        
+        patch::RedirectJump(0x5E2C71, ASM_removeEntityCollisionCPedSetPosition);
+        //nop 0x5E2C74 setting of player position in CPed::ProcessEntityCollision
+        //patch::SetChar(0x5E2C74, 0x90);
+        //patch::SetChar(0x5E2C75, 0x90);
+        //patch::SetChar(0x5E2C76, 0x90);
     }
 
     SpinningReplay() {
-        patch::RedirectJump(0x45B94A, ASM_checkBikePacket);
-        patch::RedirectJump(0x45BC7D, ASM_checkBikeExtraction);
+        //patch::RedirectJump(0x45B94A, ASM_checkBikePacket);
+        //patch::RedirectJump(0x45BC7D, ASM_checkBikeExtraction);
+
+        patchSparks();
     }
 
 
