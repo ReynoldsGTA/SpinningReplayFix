@@ -276,13 +276,11 @@ public:
         if (player && CReplay::Mode == 1) {
             player->m_nPhysicalFlags.bDisableCollisionForce = 1;
             player->m_nPhysicalFlags.bDisableMoveForce = 1;
-            player->m_nPhysicalFlags.bDisableTurnForce = 1;
             player->m_nPhysicalFlags.bDontApplySpeed = 1;
         }
         else if(player) {
             player->m_nPhysicalFlags.bDisableCollisionForce = 0;
             player->m_nPhysicalFlags.bDisableMoveForce = 0;
-            player->m_nPhysicalFlags.bDisableTurnForce = 0;
             player->m_nPhysicalFlags.bDontApplySpeed = 0;
         }
 
