@@ -1,0 +1,20 @@
+# Visual Studio
+.vs/
+*.vcxproj.user
+*.suo
+*.user
+
+# Build output / intermediates
+.obj/
+**/.obj/
+Debug/
+Release/
+x64/
+*.obj
+*.pdb
+*.ilk
+*.ipdb
+*.iobj
+*.tlog
+*.lastbuildstate
+*.idb
